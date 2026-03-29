@@ -1,0 +1,53 @@
+{
+  "scenario_name": "Balanced retirement funding plan",
+  "simulations": 25000,
+  "accumulation_years": 15,
+  "retirement_years": 25,
+  "initial_portfolio": 550000.0,
+  "annual_contribution": 26000.0,
+  "annual_contribution_real_growth": 0.01,
+  "annual_spending": 50000.0,
+  "annual_spending_real_growth": 0.005,
+  "ruin_threshold": 100000.0,
+  "inflation_rate": 0.024,
+  "inflation_volatility": 0.012,
+  "crash_chance": 0.07,
+  "crash_equity_return_shift": -0.28,
+  "crash_bond_return_shift": 0.04,
+  "tail_loss_chance": 0.03,
+  "tail_equity_return_shift": -0.14,
+  "tail_bond_return_shift": -0.04,
+  "allocation": {
+    "stocks": 0.65,
+    "bonds": 0.3,
+    "cash": 0.05
+  },
+  "assets": {
+    "stocks": {
+      "expected_return": 0.082,
+      "volatility": 0.18
+    },
+    "bonds": {
+      "expected_return": 0.043,
+      "volatility": 0.07
+    },
+    "cash": {
+      "expected_return": 0.026,
+      "volatility": 0.012
+    }
+  },
+  "correlations": {
+    "stock_bond": 0.18,
+    "stock_cash": 0.05,
+    "bond_cash": 0.25
+  },
+  "volatility_model": {
+    "persistence": 0.45,
+    "shock_sensitivity": 0.18,
+    "crash_boost": 0.5,
+    "tail_boost": 0.18,
+    "max_multiplier": 2.6,
+    "extreme_shock_chance": 0.08,
+    "extreme_shock_scale": 1.55
+  }
+}

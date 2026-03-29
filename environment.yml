@@ -1,0 +1,6 @@
+name: monte-carlo-rust
+channels:
+  - defaults
+dependencies:
+  - rust
+prefix: /Users/derickshi/anaconda3/envs/monte-carlo-rust
