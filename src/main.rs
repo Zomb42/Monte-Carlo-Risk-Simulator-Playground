@@ -6,8 +6,8 @@ use std::{fs, path::PathBuf, process::ExitCode, time::Instant};
 
 use clap::Parser;
 use model::SimulationConfig;
-use report::render_terminal_report;
-use simulation::{run_parallel, run_sequential};
+use report::{render_benchmark_report, render_terminal_report};
+use simulation::{run_benchmark, run_parallel, run_sequential};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -26,6 +26,24 @@ struct Cli {
 
     #[arg(long, help = "Run without Rayon to compare sequential execution.")]
     sequential: bool,
+
+    #[arg(long, help = "Override the number of Monte Carlo paths to simulate.")]
+    simulations: Option<usize>,
+
+    #[arg(
+        long,
+        help = "Run repeated sequential and parallel benchmark passes.",
+        conflicts_with = "sequential"
+    )]
+    benchmark: bool,
+
+    #[arg(
+        long,
+        default_value_t = 5,
+        help = "Number of benchmark repetitions to run.",
+        requires = "benchmark"
+    )]
+    benchmark_runs: usize,
 }
 
 fn main() -> ExitCode {
@@ -61,7 +79,28 @@ fn try_main() -> Result<(), String> {
         None => SimulationConfig::default(),
     };
 
+    let mut config = config;
+    if let Some(simulations) = cli.simulations {
+        config.simulations = simulations;
+    }
+
     config.validate()?;
+
+    if cli.benchmark {
+        if cli.benchmark_runs == 0 {
+            return Err("benchmark_runs must be at least 1".to_string());
+        }
+
+        let benchmark = run_benchmark(&config, cli.benchmark_runs);
+        if cli.json {
+            let payload = serde_json::to_string_pretty(&benchmark)
+                .map_err(|err| format!("failed to serialize benchmark report: {err}"))?;
+            println!("{payload}");
+        } else {
+            println!("{}", render_benchmark_report(&config, &benchmark));
+        }
+        return Ok(());
+    }
 
     let start = Instant::now();
     let report = if cli.sequential {

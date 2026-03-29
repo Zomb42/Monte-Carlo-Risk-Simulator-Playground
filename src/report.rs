@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use crate::model::SimulationConfig;
 use crate::model::SimulationReport;
+use crate::simulation::BenchmarkReport;
 
 pub fn render_terminal_report(
     config: &SimulationConfig,
@@ -133,6 +134,51 @@ pub fn render_terminal_report(
         "  This run finished its core aggregation in {} ms, which makes it easy to compare sequential and parallel Rust implementations on the same model.",
         report.elapsed_millis
     ));
+
+    lines.join("\n")
+}
+
+pub fn render_benchmark_report(config: &SimulationConfig, benchmark: &BenchmarkReport) -> String {
+    let mut lines = Vec::new();
+
+    lines.push(format!("=== Benchmark: {} ===", config.scenario_name));
+    lines.push(format!(
+        "Repetitions: {} | Simulations per run: {} | Horizon: {} years",
+        benchmark.repetitions, benchmark.simulations, benchmark.years
+    ));
+    lines.push(String::new());
+
+    lines.push("Performance".to_string());
+    lines.push(format!(
+        "  Sequential avg: {:.2} ms | best: {} ms | throughput: {:.0} paths/sec",
+        benchmark.sequential_avg_ms,
+        benchmark.sequential_best_ms,
+        benchmark.sequential_paths_per_second
+    ));
+    lines.push(format!(
+        "  Parallel avg: {:.2} ms | best: {} ms | throughput: {:.0} paths/sec",
+        benchmark.parallel_avg_ms, benchmark.parallel_best_ms, benchmark.parallel_paths_per_second
+    ));
+    lines.push(format!("  Speedup: {:.2}x", benchmark.speedup));
+    lines.push(String::new());
+
+    lines.push("Sanity checks".to_string());
+    lines.push(format!(
+        "  Sequential and parallel results match: {}",
+        if benchmark.results_match { "yes" } else { "no" }
+    ));
+    lines.push(format!(
+        "  Reference failure probability: {} | Reference median real ending wealth: {}",
+        pct(benchmark.reference_failure_probability),
+        money(benchmark.reference_median_ending_real)
+    ));
+    lines.push(String::new());
+
+    lines.push("Tip".to_string());
+    lines.push(
+        "  Use `cargo run --release -- --benchmark ...` for more meaningful large-scale timing metrics."
+            .to_string(),
+    );
 
     lines.join("\n")
 }

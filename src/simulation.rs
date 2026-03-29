@@ -3,6 +3,7 @@ use std::time::Instant;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use rand_distr::{Distribution, StandardNormal};
 use rayon::prelude::*;
+use serde::Serialize;
 
 use crate::model::{MarketRegime, PathOutcome, SimulationConfig, SimulationReport, YearBand};
 
@@ -24,6 +25,56 @@ pub fn run_sequential(config: &SimulationConfig) -> SimulationReport {
     }
 
     build_report(config, paths, start.elapsed().as_millis())
+}
+
+pub fn run_benchmark(config: &SimulationConfig, repetitions: usize) -> BenchmarkReport {
+    let mut sequential_timings_ms = Vec::with_capacity(repetitions);
+    let mut parallel_timings_ms = Vec::with_capacity(repetitions);
+    let mut reference_sequential = None;
+    let mut reference_parallel = None;
+
+    for _ in 0..repetitions {
+        let sequential = run_sequential(config);
+        sequential_timings_ms.push(sequential.elapsed_millis);
+        if reference_sequential.is_none() {
+            reference_sequential = Some(sequential);
+        }
+
+        let parallel = run_parallel(config);
+        parallel_timings_ms.push(parallel.elapsed_millis);
+        if reference_parallel.is_none() {
+            reference_parallel = Some(parallel);
+        }
+    }
+
+    let sequential_reference = reference_sequential.expect("at least one sequential benchmark");
+    let parallel_reference = reference_parallel.expect("at least one parallel benchmark");
+    let sequential_avg_ms = average_u128(&sequential_timings_ms);
+    let parallel_avg_ms = average_u128(&parallel_timings_ms);
+    let sequential_best_ms = min_u128(&sequential_timings_ms);
+    let parallel_best_ms = min_u128(&parallel_timings_ms);
+
+    BenchmarkReport {
+        repetitions,
+        simulations: config.simulations,
+        years: config.total_years(),
+        sequential_timings_ms,
+        parallel_timings_ms,
+        sequential_avg_ms,
+        parallel_avg_ms,
+        sequential_best_ms,
+        parallel_best_ms,
+        sequential_paths_per_second: throughput(config.simulations, sequential_avg_ms),
+        parallel_paths_per_second: throughput(config.simulations, parallel_avg_ms),
+        speedup: if parallel_avg_ms > 0.0 {
+            sequential_avg_ms / parallel_avg_ms
+        } else {
+            0.0
+        },
+        results_match: reports_match(&sequential_reference, &parallel_reference),
+        reference_failure_probability: parallel_reference.failure_probability,
+        reference_median_ending_real: parallel_reference.p50_ending_real,
+    }
 }
 
 fn simulate_path(config: &SimulationConfig, seed: u64) -> PathOutcome {
@@ -380,6 +431,37 @@ fn build_histogram(sorted_values: &[f64], buckets: usize) -> Vec<(f64, usize)> {
     histogram
 }
 
+fn average_u128(values: &[u128]) -> f64 {
+    if values.is_empty() {
+        return 0.0;
+    }
+
+    values.iter().map(|value| *value as f64).sum::<f64>() / values.len() as f64
+}
+
+fn min_u128(values: &[u128]) -> u128 {
+    values.iter().copied().min().unwrap_or(0)
+}
+
+fn throughput(simulations: usize, avg_ms: f64) -> f64 {
+    if avg_ms <= 0.0 {
+        0.0
+    } else {
+        simulations as f64 * 1000.0 / avg_ms
+    }
+}
+
+fn reports_match(left: &SimulationReport, right: &SimulationReport) -> bool {
+    left.p10_ending_real == right.p10_ending_real
+        && left.p50_ending_real == right.p50_ending_real
+        && left.p90_ending_real == right.p90_ending_real
+        && left.worst_case_real == right.worst_case_real
+        && left.best_case_real == right.best_case_real
+        && left.failure_probability == right.failure_probability
+        && left.depletion_probability == right.depletion_probability
+        && left.floor_breach_probability == right.floor_breach_probability
+}
+
 struct AnnualMarketSnapshot {
     portfolio_return: f64,
     crash_event: bool,
@@ -405,6 +487,25 @@ impl Default for VolatilityState {
 enum AssetKind {
     Stock,
     Bond,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BenchmarkReport {
+    pub repetitions: usize,
+    pub simulations: usize,
+    pub years: usize,
+    pub sequential_timings_ms: Vec<u128>,
+    pub parallel_timings_ms: Vec<u128>,
+    pub sequential_avg_ms: f64,
+    pub parallel_avg_ms: f64,
+    pub sequential_best_ms: u128,
+    pub parallel_best_ms: u128,
+    pub sequential_paths_per_second: f64,
+    pub parallel_paths_per_second: f64,
+    pub speedup: f64,
+    pub results_match: bool,
+    pub reference_failure_probability: f64,
+    pub reference_median_ending_real: f64,
 }
 
 #[cfg(test)]

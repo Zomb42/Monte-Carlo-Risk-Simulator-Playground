@@ -33,6 +33,7 @@ This is the kind of codebase where Rust feels very different from many scripting
 The simulator is a CLI app that:
 
 - runs many portfolio paths either sequentially or in parallel
+- can benchmark repeated sequential vs parallel runs
 - models multiple market regimes including slowdown and stagflation
 - uses correlated stock / bond / cash assumptions
 - lets volatility rise after shocks and decay gradually over time
@@ -82,6 +83,37 @@ Print JSON output instead of the terminal report:
 cargo run -- --config scenarios/aggressive_accumulation.json --json
 ```
 
+Override the number of simulation paths:
+
+```bash
+cargo run -- --config scenarios/aggressive_accumulation.json --simulations 100000
+```
+
+Run a large-scale benchmark with metrics:
+
+```bash
+cargo run --release -- --config scenarios/aggressive_accumulation.json --simulations 100000 --benchmark --benchmark-runs 5
+```
+
+That benchmark mode reports:
+
+- average sequential runtime
+- average parallel runtime
+- best run for each mode
+- paths per second
+- overall speedup
+- whether sequential and parallel results still match
+
+## Project takeaways
+
+- Monte Carlo simulation is about exploring a distribution of futures, not predicting one exact future.
+- Sequence risk matters as much as average return, especially once withdrawals begin.
+- Diversification helps, but correlation and stress behavior matter a lot during bad regimes.
+- Volatility is more realistic when it clusters and persists instead of resetting every year.
+- Clear modeling pays off: separating allocation, market assumptions, inflation, withdrawals, and failure rules makes the simulator easier to trust and extend.
+- Rust is a strong fit for simulation-heavy work because it combines performance, explicit data modeling, and safe parallel execution.
+- Validation and tests are part of financial modeling, not just code hygiene.
+
 ## Good next directions
 
 - compare Rust parallel performance against Python or JavaScript
@@ -92,4 +124,4 @@ cargo run -- --config scenarios/aggressive_accumulation.json --json
 
 ## Note
 
-Rust is not installed in the current environment, so the code has been scaffolded carefully but not compiled here yet.
+The project has been compiled and tested in the `monte-carlo-rust` conda environment.
